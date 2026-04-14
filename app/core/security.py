@@ -15,7 +15,10 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     # Truncate password to 72 bytes before verification (same limit as hashing)
-    return pwd_context.verify(plain_password[:72], hashed_password)
+    try:
+        return pwd_context.verify(plain_password[:72], hashed_password)
+    except ValueError:
+        return False
 
 
 def create_access_token(subject: str) -> str:
@@ -23,4 +26,3 @@ def create_access_token(subject: str) -> str:
     expire = datetime.now(timezone.utc) + expires_delta
     payload = {"sub": subject, "exp": expire}
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
-
