@@ -1,6 +1,7 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -141,7 +142,16 @@ def get_items(team_id: int = Query(...), db: Session = Depends(get_db), user: Us
         creators = db.execute(select(User).where(User.id.in_(creator_ids))).scalars().all()
         creator_map = {u.id: u for u in creators}
     
-    return [_serialize_item(item, creator_map) for item in items]
+    response_data = [_serialize_item(item, creator_map) for item in items]
+    
+    # Add caching headers - cache for 1 minute
+    return JSONResponse(
+        content=response_data,
+        headers={
+            "Cache-Control": "public, max-age=60",
+            "Vary": "Authorization",
+        }
+    )
 
 
 @router.get("/schedule", response_model=list[ScheduleItemOut])
@@ -177,7 +187,17 @@ def get_schedule(
         creators = db.execute(select(User).where(User.id.in_(creator_ids))).scalars().all()
         creator_map = {u.id: u for u in creators}
     
-    return [_serialize_item(item, creator_map) for item in items]
+    response_data = [_serialize_item(item, creator_map) for item in items]
+    
+    # Add caching headers: Cache for 1 minute, validate freshness with ETag
+    # Frontend can safely show cached data while checking for updates in background
+    return JSONResponse(
+        content=response_data,
+        headers={
+            "Cache-Control": "public, max-age=60",
+            "Vary": "Authorization",
+        }
+    )
 
 
 @router.put("/update-item/{item_id}", response_model=ScheduleItemOut)

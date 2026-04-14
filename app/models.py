@@ -54,7 +54,7 @@ class Team(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
     code: Mapped[str] = mapped_column(String(16), unique=True, index=True)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     invite_token: Mapped[Optional[str]] = mapped_column(String(120), unique=True, nullable=True)
 
     members: Mapped[list["TeamMember"]] = relationship(back_populates="team", cascade="all, delete-orphan")
@@ -81,7 +81,7 @@ class ScheduleItem(Base):
     date: Mapped[date] = mapped_column(Date, index=True)
     time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
     type: Mapped[ItemType] = mapped_column(SAEnum(ItemType), index=True)
-    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
