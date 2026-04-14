@@ -9,15 +9,24 @@ def _send_email(email: str, subject: str, body: str, dev_prefix: str) -> None:
         print(f"[{dev_prefix}] {email} -> {body}")
         return
 
+def _send_email(email: str, subject: str, body: str, dev_prefix: str) -> None:
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_password:
+        print(f"[{dev_prefix}] {email} -> {body}")
+        return
+
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
     msg["To"] = email
 
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
-        server.starttls()
-        server.login(settings.smtp_user, settings.smtp_password)
-        server.sendmail(settings.smtp_from, [email], msg.as_string())
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+            server.starttls()
+            server.login(settings.smtp_user, settings.smtp_password)
+            server.sendmail(settings.smtp_from, [email], msg.as_string())
+    except Exception as e:
+        print(f"Failed to send email to {email}: {e}")
+        print(f"[{dev_prefix}] {email} -> {body}")
 
 
 def send_otp_email(email: str, otp: str) -> None:

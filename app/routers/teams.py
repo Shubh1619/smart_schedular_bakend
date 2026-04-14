@@ -103,8 +103,16 @@ def join_team_by_link(token: str = Query(...), db: Session = Depends(get_db), us
 def invite_member(payload: InviteMemberRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     team = ensure_team_owner(payload.team_id, user.id, db)
     invite_link = build_invite_link(team.invite_token or "")
-    send_team_invite_email(str(payload.email), team.name, invite_link)
-    return MessageResponse(message=f"Invite sent to {payload.email}")
+    
+    sent_count = 0
+    for email in payload.emails:
+        try:
+            send_team_invite_email(str(email), team.name, invite_link)
+            sent_count += 1
+        except Exception:
+            continue  # Skip on error
+    
+    return MessageResponse(message=f"Invites sent to {sent_count} email(s)")
 
 
 @router.get("/teams", response_model=list[TeamOut])

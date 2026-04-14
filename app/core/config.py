@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     otp_expire_minutes: int = Field(alias="OTP_EXPIRE_MINUTES")
 
     cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
+        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173", "https://smart-schedular.mrshubh2007.workers.dev"],
         alias="CORS_ORIGINS",
     )
     cors_origin_regex: Optional[str] = Field(

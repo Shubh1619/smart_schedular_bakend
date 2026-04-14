@@ -47,7 +47,7 @@ class JoinTeamRequest(BaseModel):
 
 class InviteMemberRequest(BaseModel):
     team_id: int
-    email: EmailStr
+    emails: list[EmailStr] = Field(min_items=1)
 
 
 class TeamUpdateRequest(BaseModel):
