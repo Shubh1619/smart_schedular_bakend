@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173"],
         alias="CORS_ORIGINS",
     )
+    cors_origin_regex: Optional[str] = Field(
+        default=r"^https://([a-z0-9-]+\.)*workers\.dev$",
+        alias="CORS_ORIGIN_REGEX",
+    )
 
     smtp_host: Optional[str] = Field(default=None, alias="MAIL_SERVER")
     smtp_port: int = Field(default=587, alias="MAIL_PORT")
