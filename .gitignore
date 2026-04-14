@@ -1,0 +1,11 @@
+﻿
+# env
+.env
+.env.*
+
+# python cache
+__pycache__/
+*.py[cod]
+
+# virtualenv
+venv/
