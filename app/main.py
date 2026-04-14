@@ -11,9 +11,15 @@ from app.routers import assignments, attachments, auth, schedule, teams
 
 app = FastAPI(title=settings.app_name)
 
+allowed_origins = []
+for origin in [*settings.cors_origins, settings.frontend_base_url]:
+    normalized = str(origin).strip().rstrip("/")
+    if normalized and normalized not in allowed_origins:
+        allowed_origins.append(normalized)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
