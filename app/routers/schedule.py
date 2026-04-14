@@ -1,8 +1,8 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.deps import get_current_user, get_db
 from app.email_service import send_assignment_email
@@ -51,21 +51,34 @@ def _replace_assignments(item: ScheduleItem, assignee_ids: list[int], db: Sessio
             db.add(Assignment(item_id=item.id, user_id=assignee_id))
 
 
-def _send_assignment_notifications(item: ScheduleItem, assignee_ids: list[int], db: Session) -> None:
-    if not assignee_ids:
+def _send_assignment_notifications(
+    item: ScheduleItem,
+    assignee_ids: list[int],
+    db: Session,
+    background_tasks=None,
+) -> None:
+    if not assignee_ids or not background_tasks:
         return
+    
     team = db.get(Team, item.team_id)
-    for assignee_id in assignee_ids:
-        assignee = db.get(User, assignee_id)
-        if not assignee:
-            continue
-        send_assignment_email(
-            assignee.email,
-            team.name if team else "Team",
-            item.title,
-            item.type.value,
-            item.date.isoformat(),
-        )
+    user_ids = set(assignee_ids)
+    
+    # Batch load users
+    if user_ids:
+        users = db.execute(select(User).where(User.id.in_(user_ids))).scalars().all()
+        user_map = {u.id: u for u in users}
+        
+        for assignee_id in assignee_ids:
+            if assignee_id in user_map:
+                assignee = user_map[assignee_id]
+                background_tasks.add_task(
+                    send_assignment_email,
+                    assignee.email,
+                    team.name if team else "Team",
+                    item.title,
+                    item.type.value,
+                    item.date.isoformat(),
+                )
 
 
 def _validate_item_date_not_in_past(item_date: date) -> None:
@@ -77,7 +90,12 @@ def _validate_item_date_not_in_past(item_date: date) -> None:
 
 
 @router.post("/create-item", response_model=ScheduleItemOut)
-def create_item(payload: ScheduleItemCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def create_item(
+    payload: ScheduleItemCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
     _validate_item_date_not_in_past(payload.date)
     ensure_team_access(payload.team_id, user.id, db)
     assignee_ids = _validate_assignees(payload.team_id, payload.assignee_ids, db)
@@ -102,17 +120,28 @@ def create_item(payload: ScheduleItemCreate, db: Session = Depends(get_db), user
 
     db.commit()
     db.refresh(item)
-    _send_assignment_notifications(item, assignee_ids, db)
-    return _serialize_item(item, db)
+    _send_assignment_notifications(item, assignee_ids, db, background_tasks)
+    return _serialize_item(item, {user.id: user})
 
 
 @router.get("/get-items", response_model=list[ScheduleItemOut])
 def get_items(team_id: int = Query(...), db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     ensure_team_access(team_id, user.id, db)
     items = db.execute(
-        select(ScheduleItem).where(ScheduleItem.team_id == team_id).order_by(ScheduleItem.date.asc())
-    ).scalars().all()
-    return [_serialize_item(item, db) for item in items]
+        select(ScheduleItem)
+        .options(selectinload(ScheduleItem.assignments), selectinload(ScheduleItem.attachments))
+        .where(ScheduleItem.team_id == team_id)
+        .order_by(ScheduleItem.date.asc())
+    ).unique().scalars().all()
+    
+    # Batch load creators
+    creator_ids = set(item.created_by for item in items)
+    creator_map = {}
+    if creator_ids:
+        creators = db.execute(select(User).where(User.id.in_(creator_ids))).scalars().all()
+        creator_map = {u.id: u for u in creators}
+    
+    return [_serialize_item(item, creator_map) for item in items]
 
 
 @router.get("/schedule", response_model=list[ScheduleItemOut])
@@ -124,19 +153,31 @@ def get_schedule(
     if team_id is not None:
         ensure_team_access(team_id, user.id, db)
         items = db.execute(
-            select(ScheduleItem).where(ScheduleItem.team_id == team_id).order_by(ScheduleItem.date.asc())
-        ).scalars().all()
-        return [_serialize_item(item, db) for item in items]
-
-    memberships = db.execute(select(TeamMember).where(TeamMember.user_id == user.id)).scalars().all()
-    if not memberships:
-        return []
-
-    team_ids = [membership.team_id for membership in memberships]
-    items = db.execute(
-        select(ScheduleItem).where(ScheduleItem.team_id.in_(team_ids)).order_by(ScheduleItem.date.asc())
-    ).scalars().all()
-    return [_serialize_item(item, db) for item in items]
+            select(ScheduleItem)
+            .options(selectinload(ScheduleItem.assignments), selectinload(ScheduleItem.attachments))
+            .where(ScheduleItem.team_id == team_id)
+            .order_by(ScheduleItem.date.asc())
+        ).unique().scalars().all()
+    else:
+        memberships = db.execute(select(TeamMember).where(TeamMember.user_id == user.id)).scalars().all()
+        if not memberships:
+            return []
+        team_ids = [membership.team_id for membership in memberships]
+        items = db.execute(
+            select(ScheduleItem)
+            .options(selectinload(ScheduleItem.assignments), selectinload(ScheduleItem.attachments))
+            .where(ScheduleItem.team_id.in_(team_ids))
+            .order_by(ScheduleItem.date.asc())
+        ).unique().scalars().all()
+    
+    # Batch load creators
+    creator_ids = set(item.created_by for item in items)
+    creator_map = {}
+    if creator_ids:
+        creators = db.execute(select(User).where(User.id.in_(creator_ids))).scalars().all()
+        creator_map = {u.id: u for u in creators}
+    
+    return [_serialize_item(item, creator_map) for item in items]
 
 
 @router.put("/update-item/{item_id}", response_model=ScheduleItemOut)
@@ -145,6 +186,7 @@ def update_item(
     payload: ScheduleItemUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     item = db.get(ScheduleItem, item_id)
     if not item:
@@ -173,8 +215,8 @@ def update_item(
     db.commit()
     db.refresh(item)
     if incoming_assignees is not None:
-        _send_assignment_notifications(item, assignee_ids, db)
-    return _serialize_item(item, db)
+        _send_assignment_notifications(item, assignee_ids, db, background_tasks)
+    return _serialize_item(item, {user.id: user})
 
 
 @router.delete("/delete-item/{item_id}", response_model=MessageResponse)
@@ -189,8 +231,10 @@ def delete_item(item_id: int, db: Session = Depends(get_db), user: User = Depend
     )
 
 
-def _serialize_item(item: ScheduleItem, db: Session) -> ScheduleItemOut:
-    creator = db.get(User, item.created_by)
+def _serialize_item(item: ScheduleItem, creator_map: dict = None) -> ScheduleItemOut:
+    creator_name = "Unknown"
+    if creator_map and item.created_by in creator_map:
+        creator_name = creator_map[item.created_by].full_name
     return ScheduleItemOut(
         id=item.id,
         title=item.title,
@@ -201,7 +245,7 @@ def _serialize_item(item: ScheduleItem, db: Session) -> ScheduleItemOut:
         created_by=item.created_by,
         team_id=item.team_id,
         created_at=item.created_at,
-        creator_name=creator.full_name if creator else "Unknown",
+        creator_name=creator_name,
         assignments=item.assignments,
         attachments=item.attachments,
     )

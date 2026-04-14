@@ -1,7 +1,7 @@
 import secrets
 import string
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -42,7 +42,12 @@ def build_invite_link(token: str) -> str:
 
 
 @router.post("/create-team", response_model=TeamOut)
-def create_team(payload: TeamCreateRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def create_team(
+    payload: TeamCreateRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
     code = generate_team_code()
     invite_token = secrets.token_urlsafe(24)
     while db.execute(select(Team).where(Team.code == code)).scalar_one_or_none():
@@ -61,7 +66,8 @@ def create_team(payload: TeamCreateRequest, db: Session = Depends(get_db), user:
     for email in payload.participant_emails:
         if email.lower() == user.email.lower():
             continue
-        send_team_invite_email(str(email), team.name, invite_link)
+        # Send invitations in background
+        background_tasks.add_task(send_team_invite_email, str(email), team.name, invite_link)
 
     return team
 
@@ -100,14 +106,20 @@ def join_team_by_link(token: str = Query(...), db: Session = Depends(get_db), us
 
 
 @router.post("/invite-member", response_model=MessageResponse)
-def invite_member(payload: InviteMemberRequest, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+def invite_member(
+    payload: InviteMemberRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
     team = ensure_team_owner(payload.team_id, user.id, db)
     invite_link = build_invite_link(team.invite_token or "")
     
     sent_count = 0
     for email in payload.emails:
         try:
-            send_team_invite_email(str(email), team.name, invite_link)
+            # Add email to background queue instead of sending now
+            background_tasks.add_task(send_team_invite_email, str(email), team.name, invite_link)
             sent_count += 1
         except Exception:
             continue  # Skip on error

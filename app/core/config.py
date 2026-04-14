@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     smtp_user: Optional[str] = Field(default=None, alias="MAIL_USERNAME")
     smtp_password: Optional[str] = Field(default=None, alias="MAIL_PASSWORD")
     smtp_from: str = Field(default="noreply@smartschedular.local", alias="MAIL_FROM")
+    
+    brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
+    mail_from_name: str = Field(default="Smart Schedular", alias="MAIL_FROM_NAME")
 
     @field_validator("cors_origins", mode="before")
     @classmethod
