@@ -36,7 +36,7 @@ def send_email(
 
         email = sib_api_v3_sdk.SendSmtpEmail(
             to=[{"email": to_email}],
-            sender={"name": settings.mail_from_name or "Smart Schedular", "email": settings.mail_from},
+            sender={"name": settings.mail_from_name or "Smart Schedular", "email": settings.smtp_from},
             subject=subject,
             html_content=html_content,
             text_content=text_content,
