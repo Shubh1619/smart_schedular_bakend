@@ -190,7 +190,7 @@ def get_schedule(
     # Add caching headers: Cache for 1 minute, validate freshness with ETag
     # Frontend can safely show cached data while checking for updates in background
     return JSONResponse(
-        content=response_data,
+        content=jsonable_encoder(response_data),
         headers={
             "Cache-Control": "public, max-age=60",
             "Vary": "Authorization",
