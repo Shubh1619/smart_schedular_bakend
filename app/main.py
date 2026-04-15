@@ -3,7 +3,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.gzip import GZIPMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from sqlalchemy.exc import OperationalError
 
 from app.core.config import settings
@@ -19,7 +19,7 @@ for origin in [*settings.cors_origins, settings.frontend_base_url]:
         allowed_origins.append(normalized)
 
 # Add middleware in reverse order (last added = first executed)
-app.add_middleware(GZIPMiddleware, minimum_size=1000)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
