@@ -187,14 +187,8 @@ def get_schedule(
     
     response_data = [_serialize_item(item, creator_map) for item in items]
     
-    # Add caching headers: Cache for 1 minute, validate freshness with ETag
-    # Frontend can safely show cached data while checking for updates in background
     return JSONResponse(
-        content=jsonable_encoder(response_data),
-        headers={
-            "Cache-Control": "public, max-age=60",
-            "Vary": "Authorization",
-        }
+        content=jsonable_encoder(response_data)
     )
 
 
@@ -242,10 +236,17 @@ def delete_item(item_id: int, db: Session = Depends(get_db), user: User = Depend
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     ensure_team_access(item.team_id, user.id, db)
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Deleting events, tasks, and notes is disabled",
-    )
+    if item.created_by != user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only creator can delete item")
+
+    for assignment in item.assignments:
+        db.delete(assignment)
+    for attachment in item.attachments:
+        db.delete(attachment)
+        
+    db.delete(item)
+    db.commit()
+    return MessageResponse(message="Item deleted")
 
 
 def _serialize_item(item: ScheduleItem, creator_map: dict = None) -> ScheduleItemOut:
