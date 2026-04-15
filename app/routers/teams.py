@@ -66,7 +66,7 @@ def create_team(
         if email.lower() == user.email.lower():
             continue
         # Send invitations synchronously
-        send_team_invite_email(str(email), team.name, team.code)
+        send_team_invite_email(str(email), team.name, team.code, invite_link)
 
     return team
 
@@ -85,7 +85,7 @@ def join_team(payload: JoinTeamRequest, db: Session = Depends(get_db), user: Use
 
     db.add(TeamMember(user_id=user.id, team_id=team.id, role=RoleEnum.member))
     db.commit()
-    return MessageResponse(message="Joined team successfully")
+    return MessageResponse(message="Joined team successfully", team_id=team.id)
 
 
 @router.get("/join-team", response_model=MessageResponse)
@@ -101,7 +101,7 @@ def join_team_by_link(token: str = Query(...), db: Session = Depends(get_db), us
 
     db.add(TeamMember(user_id=user.id, team_id=team.id, role=RoleEnum.member))
     db.commit()
-    return MessageResponse(message="Joined team successfully via invite link")
+    return MessageResponse(message="Joined team successfully via invite link", team_id=team.id)
 
 
 # ✅ Correct
@@ -117,7 +117,7 @@ def invite_member(
     sent_count = 0
     for email in payload.emails:
         try:
-            send_team_invite_email(str(email), team.name, team.code)
+            send_team_invite_email(str(email), team.name, team.code, invite_link)
             sent_count += 1
         except Exception:
             continue

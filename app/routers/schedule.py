@@ -2,6 +2,7 @@ from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
@@ -143,7 +144,7 @@ def get_items(team_id: int = Query(...), db: Session = Depends(get_db), user: Us
     
     # Add caching headers - cache for 1 minute
     return JSONResponse(
-        content=response_data,
+        content=jsonable_encoder(response_data),
         headers={
             "Cache-Control": "public, max-age=60",
             "Vary": "Authorization",

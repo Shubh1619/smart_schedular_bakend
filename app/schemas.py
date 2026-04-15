@@ -10,6 +10,7 @@ from app.models import AssignmentStatus, ItemType, RoleEnum
 
 class MessageResponse(BaseModel):
     message: str
+    team_id: Optional[int] = None
 
 
 class RegisterRequest(BaseModel):

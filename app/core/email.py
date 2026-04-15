@@ -54,8 +54,8 @@ def send_email(
         return False
 
 
-def send_team_invite_email(to_email: str, team_name: str, team_code: str) -> bool:
-    """Send team invitation email with join code."""
+def send_team_invite_email(to_email: str, team_name: str, team_code: str, invite_link: str) -> bool:
+    """Send team invitation email with join code and link."""
     subject = f"Join {team_name} on Smart Schedular 🎉"
     
     html_content = f"""
@@ -68,7 +68,24 @@ def send_team_invite_email(to_email: str, team_name: str, team_code: str) -> boo
             <div style="padding: 32px 0; text-align: center;">
                 <p style="font-size: 16px; color: #374151; line-height: 1.6; margin: 0 0 24px 0;">
                     You have been invited to join the team <strong>{team_name}</strong>. 
-                    Enter this code in your dashboard to join:
+                </p>
+                
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="{invite_link}" style="
+                        display: inline-block;
+                        background: #4F46E5;
+                        color: white;
+                        padding: 14px 40px;
+                        border-radius: 8px;
+                        text-decoration: none;
+                        font-weight: 600;
+                        font-size: 16px;
+                        transition: background 0.2s;
+                    ">Accept Invite</a>
+                </div>
+                
+                <p style="font-size: 14px; color: #6B7280; line-height: 1.6; margin-top: 24px;">
+                    Or enter this code manually in your dashboard:
                 </p>
                 
                 <div style="
@@ -76,7 +93,7 @@ def send_team_invite_email(to_email: str, team_name: str, team_code: str) -> boo
                     border: 2px solid #E5E7EB;
                     border-radius: 8px;
                     padding: 20px;
-                    margin: 24px 0;
+                    margin: 16px 0;
                     font-family: 'Courier New', monospace;
                     font-size: 32px;
                     font-weight: 700;
@@ -96,7 +113,8 @@ You're Invited! 🎉
 
 You have been invited to join the team "{team_name}" on Smart Schedular.
 
-Enter this code in your dashboard to join: {team_code}
+Accept Invite Link: {invite_link}
+Or enter this code manually in your dashboard: {team_code}
 
 © 2026 Smart Schedular
     """
