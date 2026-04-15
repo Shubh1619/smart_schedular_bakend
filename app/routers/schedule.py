@@ -56,9 +56,8 @@ def _send_assignment_notifications(
     item: ScheduleItem,
     assignee_ids: list[int],
     db: Session,
-    background_tasks=None,
 ) -> None:
-    if not assignee_ids or not background_tasks:
+    if not assignee_ids:
         return
     
     team = db.get(Team, item.team_id)
@@ -72,8 +71,7 @@ def _send_assignment_notifications(
         for assignee_id in assignee_ids:
             if assignee_id in user_map:
                 assignee = user_map[assignee_id]
-                background_tasks.add_task(
-                    send_assignment_email,
+                send_assignment_email(
                     assignee.email,
                     team.name if team else "Team",
                     item.title,
@@ -95,7 +93,6 @@ def create_item(
     payload: ScheduleItemCreate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     _validate_item_date_not_in_past(payload.date)
     ensure_team_access(payload.team_id, user.id, db)
@@ -121,7 +118,7 @@ def create_item(
 
     db.commit()
     db.refresh(item)
-    _send_assignment_notifications(item, assignee_ids, db, background_tasks)
+    _send_assignment_notifications(item, assignee_ids, db)
     return _serialize_item(item, {user.id: user})
 
 
@@ -206,7 +203,6 @@ def update_item(
     payload: ScheduleItemUpdate,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     item = db.get(ScheduleItem, item_id)
     if not item:
@@ -235,7 +231,7 @@ def update_item(
     db.commit()
     db.refresh(item)
     if incoming_assignees is not None:
-        _send_assignment_notifications(item, assignee_ids, db, background_tasks)
+        _send_assignment_notifications(item, assignee_ids, db)
     return _serialize_item(item, {user.id: user})
 
 

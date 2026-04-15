@@ -21,7 +21,11 @@ class Settings(BaseSettings):
     otp_expire_minutes: int = Field(alias="OTP_EXPIRE_MINUTES")
 
     cors_origins: list[str] = Field(
-        default_factory=lambda: ["http://localhost:5173", "http://127.0.0.1:5173", "https://smart-schedular.mrshubh2007.workers.dev"],
+        default_factory=lambda: [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://smart-schedular.mrshubh2007.workers.dev",
+        ],
         alias="CORS_ORIGINS",
     )
     cors_origin_regex: Optional[str] = Field(
@@ -29,14 +33,21 @@ class Settings(BaseSettings):
         alias="CORS_ORIGIN_REGEX",
     )
 
+    # SMTP (not used by Brevo API but kept for reference)
     smtp_host: Optional[str] = Field(default=None, alias="MAIL_SERVER")
     smtp_port: int = Field(default=587, alias="MAIL_PORT")
     smtp_user: Optional[str] = Field(default=None, alias="MAIL_USERNAME")
     smtp_password: Optional[str] = Field(default=None, alias="MAIL_PASSWORD")
-    smtp_from: str = Field(default="noreply@smartschedular.local", alias="MAIL_FROM")
-    
-    brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
+    smtp_ssl_tls: bool = Field(default=False, alias="MAIL_SSL_TLS")
+    smtp_starttls: bool = Field(default=True, alias="MAIL_STARTTLS")
+    use_credentials: bool = Field(default=True, alias="USE_CREDENTIALS")
+
+    # Sender identity — must match verified sender in Brevo dashboard
+    smtp_from: str = Field(default="trinetraservices.ltd@gmail.com", alias="MAIL_FROM")
     mail_from_name: str = Field(default="Smart Schedular", alias="MAIL_FROM_NAME")
+
+    # Brevo API
+    brevo_api_key: str = Field(default="", alias="BREVO_API_KEY")
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -50,6 +61,11 @@ class Settings(BaseSettings):
                 pass
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @property
+    def is_email_configured(self) -> bool:
+        """Check if Brevo API key is set and sender email is real."""
+        return bool(self.brevo_api_key) and "@" in self.smtp_from and ".local" not in self.smtp_from
 
 
 settings = Settings()

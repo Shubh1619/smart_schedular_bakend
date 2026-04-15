@@ -22,8 +22,8 @@ def send_email(
     Returns:
         True if email sent successfully, False otherwise
     """
-    if not settings.brevo_api_key:
-        print(f"[EMAIL] No Brevo API key configured. Email not sent to {to_email}")
+    if not settings.is_email_configured:
+        print(f"[EMAIL] Email not configured properly. Skipping send to {to_email}")
         return False
 
     try:
@@ -54,8 +54,8 @@ def send_email(
         return False
 
 
-def send_team_invite_email(to_email: str, team_name: str, invite_link: str) -> bool:
-    """Send team invitation email."""
+def send_team_invite_email(to_email: str, team_name: str, team_code: str) -> bool:
+    """Send team invitation email with join code."""
     subject = f"Join {team_name} on Smart Schedular 🎉"
     
     html_content = f"""
@@ -65,30 +65,24 @@ def send_team_invite_email(to_email: str, team_name: str, invite_link: str) -> b
                 <p style="margin: 0; font-size: 16px; opacity: 0.95;">Join <strong>{team_name}</strong> and start collaborating</p>
             </div>
             
-            <div style="padding: 32px 0;">
+            <div style="padding: 32px 0; text-align: center;">
                 <p style="font-size: 16px; color: #374151; line-height: 1.6; margin: 0 0 24px 0;">
-                    You have been invited to join the team <strong>{team_name}</strong> on Smart Schedular. 
-                    Click the button below to accept the invitation and get started.
+                    You have been invited to join the team <strong>{team_name}</strong>. 
+                    Enter this code in your dashboard to join:
                 </p>
                 
-                <div style="text-align: center; margin: 32px 0;">
-                    <a href="{invite_link}" style="
-                        display: inline-block;
-                        background: #4F46E5;
-                        color: white;
-                        padding: 14px 40px;
-                        border-radius: 8px;
-                        text-decoration: none;
-                        font-weight: 600;
-                        font-size: 16px;
-                        transition: background 0.2s;
-                    ">Accept Invite</a>
-                </div>
-                
-                <p style="font-size: 14px; color: #6B7280; line-height: 1.6; margin-top: 24px; padding-top: 24px; border-top: 1px solid #E5E7EB;">
-                    If the button doesn't work, copy and paste this link in your browser:<br/>
-                    <a href="{invite_link}" style="color: #4F46E5; text-decoration: none; word-break: break-all;">{invite_link}</a>
-                </p>
+                <div style="
+                    background: #F3F4F6;
+                    border: 2px solid #E5E7EB;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin: 24px 0;
+                    font-family: 'Courier New', monospace;
+                    font-size: 32px;
+                    font-weight: 700;
+                    color: #4F46E5;
+                    letter-spacing: 4px;
+                ">{team_code}</div>
             </div>
             
             <div style="text-align: center; padding-top: 24px; border-top: 1px solid #E5E7EB; font-size: 12px; color: #9CA3AF;">
@@ -102,9 +96,7 @@ You're Invited! 🎉
 
 You have been invited to join the team "{team_name}" on Smart Schedular.
 
-Accept Invite: {invite_link}
-
-If the link doesn't work, copy and paste the URL above in your browser.
+Enter this code in your dashboard to join: {team_code}
 
 © 2026 Smart Schedular
     """

@@ -46,7 +46,6 @@ def create_team(
     payload: TeamCreateRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     code = generate_team_code()
     invite_token = secrets.token_urlsafe(24)
@@ -66,8 +65,8 @@ def create_team(
     for email in payload.participant_emails:
         if email.lower() == user.email.lower():
             continue
-        # Send invitations in background
-        background_tasks.add_task(send_team_invite_email, str(email), team.name, invite_link)
+        # Send invitations synchronously
+        send_team_invite_email(str(email), team.name, team.code)
 
     return team
 
@@ -105,25 +104,24 @@ def join_team_by_link(token: str = Query(...), db: Session = Depends(get_db), us
     return MessageResponse(message="Joined team successfully via invite link")
 
 
+# ✅ Correct
 @router.post("/invite-member", response_model=MessageResponse)
 def invite_member(
     payload: InviteMemberRequest,
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
-    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     team = ensure_team_owner(payload.team_id, user.id, db)
     invite_link = build_invite_link(team.invite_token or "")
-    
+
     sent_count = 0
     for email in payload.emails:
         try:
-            # Add email to background queue instead of sending now
-            background_tasks.add_task(send_team_invite_email, str(email), team.name, invite_link)
+            send_team_invite_email(str(email), team.name, team.code)
             sent_count += 1
         except Exception:
-            continue  # Skip on error
-    
+            continue
+
     return MessageResponse(message=f"Invites sent to {sent_count} email(s)")
 
 
